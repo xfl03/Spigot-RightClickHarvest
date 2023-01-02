@@ -1,6 +1,5 @@
 package de.vendettagroup.rightclickharvest;
 
-import com.gmail.nossr50.datatypes.experience.XPGainSource;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,8 +16,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
-import org.bukkit.inventory.meta.ItemMeta;
-import java.util.Collection;
+
+import java.util.List;
 
 import com.gmail.nossr50.api.ExperienceAPI;
 import org.bukkit.plugin.Plugin;
@@ -32,22 +31,18 @@ public class RightClickHarvest implements Listener {
     public void rightClick(PlayerInteractEvent e) {
         Player p = e.getPlayer();
         Block b = e.getClickedBlock();
-        if (e.getAction().equals(Action.RIGHT_CLICK_BLOCK)) {
-            if (!checkBlock(b.getType()) || checkForCoca(b.getType()) && !checkForAxe(p)) {
-                return;
-            }
-            if(checkForCoca(b.getType()) && !checkForAxe(p)) {
-                return;
-            }
-            Ageable ageable = (Ageable) b.getBlockData();
-            int actualAge = ageable.getAge();
-            if (actualAge == ageable.getMaximumAge()) {
-                harvest(b, p);
-                if(checkForMcMMO()){
-                    getLogger().info("checkForMcMMO positive");
-                    ExperienceAPI.addRawXP(p, "Herbalism",50, "UNKNOWN");
-                }
-            }
+        if (!e.getAction().equals(Action.RIGHT_CLICK_BLOCK) || b == null ||
+                !checkBlock(b.getType()) || !checkForAxe(p) || !(b.getBlockData() instanceof Ageable ageable)) {
+            return;
+        }
+        int actualAge = ageable.getAge();
+        if (actualAge != ageable.getMaximumAge()) {
+            return;
+        }
+        harvest(b, p);
+        if (checkForMcMMO()) {
+            getLogger().info("checkForMcMMO positive");
+            ExperienceAPI.addRawXP(p, "Herbalism", 50, "UNKNOWN");
         }
     }
 
@@ -56,81 +51,65 @@ public class RightClickHarvest implements Listener {
         p.swingMainHand();
         changeOutputAndBreak(b, p);
         b.setType(setToBlock);
-        changeItemDurability(b.getType() ,p);
+        changeItemDurability(b.getType(), p);
         changeCocaDirection(b);
         playSound(p, b.getType());
     }
 
     private boolean checkBlock(Material m) {
-        return m == Material.WHEAT || m == Material.POTATOES || m == Material.CARROTS || m == Material.BEETROOTS
-                || m == Material.NETHER_WART || m== Material.COCOA;
+        return switch (m) {
+            case WHEAT, POTATOES, CARROTS, BEETROOTS, NETHER_WART, COCOA -> true;
+            default -> false;
+        };
     }
 
-    private boolean checkForCoca(Material m) {
-        return m == Material.COCOA;
+    private boolean isNotCoca(Material m) {
+        return m != Material.COCOA;
     }
 
     private boolean checkForAxe(Player p) {
-        p.getInventory().getItemInMainHand();
-        switch (p.getInventory().getItemInMainHand().getType()){
-            case NETHERITE_AXE:
-            case DIAMOND_AXE:
-            case IRON_AXE:
-                return true;
-        }
-        return false;
+        return switch (p.getInventory().getItemInMainHand().getType()) {
+            case NETHERITE_AXE, DIAMOND_AXE, GOLDEN_AXE, IRON_AXE, STONE_AXE, WOODEN_AXE -> true;
+            default -> false;
+        };
     }
 
-    private void changeItemDurability(Material m,Player p){
-        if(p.getGameMode() != GameMode.CREATIVE) {
-            if (checkForCoca(m)) {
-                ItemStack item = p.getInventory().getItemInMainHand();
-                Damageable itemdmg = (Damageable) item.getItemMeta();
-                int damage = itemdmg.getDamage() + 1;
-                itemdmg.setDamage((short) damage);
-                if(!item.getItemMeta().isUnbreakable()) {
-                    item.setItemMeta((ItemMeta) itemdmg);
-                }
-            }
+    private void changeItemDurability(Material m, Player p) {
+        if (p.getGameMode() == GameMode.CREATIVE || isNotCoca(m)) {
+            return;
         }
+        ItemStack item = p.getInventory().getItemInMainHand();
+        if (item.getItemMeta() == null || !item.getItemMeta().isUnbreakable() ||
+                !(item.getItemMeta() instanceof Damageable itemdmg)) {
+            return;
+        }
+        itemdmg.setDamage(itemdmg.getDamage() + 1);
+        item.setItemMeta(item.getItemMeta());
     }
 
     private boolean checkForJungleLog(Material m) {
-        return m == Material.JUNGLE_LOG || m == Material.STRIPPED_JUNGLE_LOG;
+        return switch (m) {
+            case JUNGLE_LOG, STRIPPED_JUNGLE_LOG -> true;
+            default -> false;
+        };
     }
 
     //Normally CoCpaBeansFace North so i ask for that first
     private void changeCocaDirection(Block b) {
-        if(checkForCoca(b.getType())) {
-            BlockData blockData = b.getBlockData();
-            Location cocoaBean = b.getLocation();
-            double cocoaBeanX = cocoaBean.getX();
-            double cocoaBeanZ = cocoaBean.getZ();
-            Location testForJungleLogSouth = cocoaBean;
-            testForJungleLogSouth.setZ(cocoaBeanZ-1);
-            if(checkForJungleLog(testForJungleLogSouth.getBlock().getType())){
-                return;
-            }
-            Location testForJungleLogNorth = cocoaBean;
-            testForJungleLogNorth.setZ(cocoaBeanZ+1);
-            if(checkForJungleLog(testForJungleLogNorth.getBlock().getType())) {
-                ((Directional) blockData).setFacing(BlockFace.SOUTH);
-                b.setBlockData(blockData);
-                return;
-            }
-            Location testForJungleLogWest = cocoaBean;
-            testForJungleLogWest.setX(cocoaBeanX-1);
-            testForJungleLogWest.setZ(cocoaBeanZ);
-            if(checkForJungleLog(testForJungleLogWest.getBlock().getType())) {
-                ((Directional) blockData).setFacing(BlockFace.WEST);
-                b.setBlockData(blockData);
-                return;
-            }
-            Location testForJungleLogEast = cocoaBean;
-            testForJungleLogEast.setX(cocoaBeanX+1);
-            testForJungleLogEast.setZ(cocoaBeanZ);
-            if(checkForJungleLog(testForJungleLogEast.getBlock().getType())) {
-                ((Directional) blockData).setFacing(BlockFace.EAST);
+        if (isNotCoca(b.getType())) {
+            return;
+        }
+        BlockData blockData = b.getBlockData();
+        Location cocoaBean = b.getLocation();
+        var facings = List.of(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.WEST, BlockFace.EAST);
+
+        for (var facing : facings) {
+            var testLocation = cocoaBean.clone();
+            testLocation.setX(testLocation.getX() + facing.getModX());
+            testLocation.setZ(testLocation.getZ() + facing.getModZ());
+            if (checkForJungleLog(testLocation.getBlock().getType()) &&
+                    blockData instanceof Directional directional) {
+                directional.setFacing(facing);
                 b.setBlockData(blockData);
                 return;
             }
@@ -138,54 +117,39 @@ public class RightClickHarvest implements Listener {
     }
 
     private Material getSeed(Material m) {
-        switch (m) {
-            case WHEAT:
-                return Material.WHEAT_SEEDS;
-            case POTATOES:
-                return Material.POTATO;
-            case CARROTS:
-                return Material.CARROT;
-            case BEETROOTS:
-                return Material.BEETROOT_SEEDS;
-            case NETHER_WART:
-                return Material.NETHER_WART;
-            case COCOA:
-                return Material.COCOA_BEANS;
-        }
-        return Material.AIR;
+        return switch (m) {
+            case WHEAT -> Material.WHEAT_SEEDS;
+            case POTATOES -> Material.POTATO;
+            case CARROTS -> Material.CARROT;
+            case BEETROOTS -> Material.BEETROOT_SEEDS;
+            case NETHER_WART -> Material.NETHER_WART;
+            case COCOA -> Material.COCOA_BEANS;
+            default -> Material.AIR;
+        };
     }
 
     private void playSound(Player p, Material m) {
-        if (m.equals(Material.NETHER_WART)) {
-            p.playSound(p.getLocation(), Sound.BLOCK_NETHER_WART_BREAK, 10, 1);
-            p.playSound(p.getLocation(), Sound.ITEM_NETHER_WART_PLANT, 8, 1);
-        } else {
-            p.playSound(p.getLocation(), Sound.BLOCK_CROP_BREAK, 10, 1);
-            p.playSound(p.getLocation(), Sound.ITEM_CROP_PLANT, 8, 1);
-        }
+        var isNetherWart = m.equals(Material.NETHER_WART);
+        p.playSound(p.getLocation(),
+                isNetherWart ? Sound.BLOCK_NETHER_WART_BREAK : Sound.BLOCK_CROP_BREAK, 10, 1);
+        p.playSound(p.getLocation(),
+                isNetherWart ? Sound.ITEM_NETHER_WART_PLANT : Sound.ITEM_CROP_PLANT, 8, 1);
     }
 
     private void changeOutputAndBreak(Block b, Player p) {
-        Collection<ItemStack> blockDrops;
         Location location = b.getLocation();
-        blockDrops = b.getDrops(p.getInventory().getItemInMainHand());
-        Object[] blockDropItems = blockDrops.toArray(new Object[blockDrops.size()]);
-        for(int i=0; i<blockDropItems.length;i++) {
-            ItemStack item = (ItemStack) blockDropItems[i];
-            if(item.getType() == getSeed(b.getType())){
-                item.setAmount(item.getAmount()-1);
+        for (var item : b.getDrops(p.getInventory().getItemInMainHand())) {
+            if (item.getType() == getSeed(b.getType())) {
+                item.setAmount(item.getAmount() - 1);
             }
-            if(item.getAmount() !=0){
+            if (location.getWorld() != null && item.getAmount() != 0) {
                 location.getWorld().dropItemNaturally(location, item);
             }
         }
     }
 
-    private boolean checkForMcMMO(){
+    private boolean checkForMcMMO() {
         Plugin mcmmo = getServer().getPluginManager().getPlugin("mcMMo");
-        if (mcmmo != null && mcmmo.isEnabled()) {
-            return true;
-        }
-        return false;
+        return mcmmo != null && mcmmo.isEnabled();
     }
 }

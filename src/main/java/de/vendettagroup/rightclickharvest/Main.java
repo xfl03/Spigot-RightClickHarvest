@@ -1,6 +1,5 @@
 package de.vendettagroup.rightclickharvest;
 
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class Main extends JavaPlugin {
@@ -13,7 +12,7 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        getLogger().info("RightClickHarvest gets disabeld! Huh?");
+        getLogger().info("RightClickHarvest gets disabled! Huh?");
     }
 
 }
