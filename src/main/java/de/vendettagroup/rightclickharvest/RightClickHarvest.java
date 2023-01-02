@@ -32,7 +32,8 @@ public class RightClickHarvest implements Listener {
         Player p = e.getPlayer();
         Block b = e.getClickedBlock();
         if (!e.getAction().equals(Action.RIGHT_CLICK_BLOCK) || b == null ||
-                !checkBlock(b.getType()) || !checkForAxe(p) || !(b.getBlockData() instanceof Ageable ageable)) {
+                !checkBlock(b.getType()) || !checkForAxe(b.getType(), p) ||
+                !(b.getBlockData() instanceof Ageable ageable)) {
             return;
         }
         int actualAge = ageable.getAge();
@@ -63,11 +64,14 @@ public class RightClickHarvest implements Listener {
         };
     }
 
-    private boolean isNotCoca(Material m) {
+    private boolean isNotCocoa(Material m) {
         return m != Material.COCOA;
     }
 
-    private boolean checkForAxe(Player p) {
+    private boolean checkForAxe(Material m, Player p) {
+        if (isNotCocoa(m)) {
+            return true;
+        }
         return switch (p.getInventory().getItemInMainHand().getType()) {
             case NETHERITE_AXE, DIAMOND_AXE, GOLDEN_AXE, IRON_AXE, STONE_AXE, WOODEN_AXE -> true;
             default -> false;
@@ -75,7 +79,7 @@ public class RightClickHarvest implements Listener {
     }
 
     private void changeItemDurability(Material m, Player p) {
-        if (p.getGameMode() == GameMode.CREATIVE || isNotCoca(m)) {
+        if (p.getGameMode() == GameMode.CREATIVE || isNotCocoa(m)) {
             return;
         }
         ItemStack item = p.getInventory().getItemInMainHand();
@@ -96,7 +100,7 @@ public class RightClickHarvest implements Listener {
 
     //Normally CoCpaBeansFace North so i ask for that first
     private void changeCocaDirection(Block b) {
-        if (isNotCoca(b.getType())) {
+        if (isNotCocoa(b.getType())) {
             return;
         }
         BlockData blockData = b.getBlockData();
